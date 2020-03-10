@@ -51,6 +51,26 @@ func dataSourceAwsAutoscalingGroup() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"launch_template": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"name": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"version": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
+			},
 			"load_balancers": {
 				Type:     schema.TypeSet,
 				Computed: true,
@@ -81,6 +101,12 @@ func dataSourceAwsAutoscalingGroup() *schema.Resource {
 			"status": {
 				Type:     schema.TypeString,
 				Computed: true,
+			},
+			"tag": autoscalingTagSchema(),
+			"tags": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeMap},
 			},
 			"target_group_arns": {
 				Type:     schema.TypeSet,
@@ -129,7 +155,7 @@ func dataSourceAwsAutoscalingGroupRead(d *schema.ResourceData, meta interface{})
 	log.Printf("[DEBUG] Found Autoscaling Group: %s", result)
 
 	if len(result.AutoScalingGroups) < 1 {
-		return fmt.Errorf("Your query did not return any results. Please try a different search criteria.")
+		return fmt.Errorf("Your query did not return any results. Please try a different search criteria")
 	}
 
 	if len(result.AutoScalingGroups) > 1 {
@@ -160,6 +186,8 @@ func groupDescriptionAttributes(d *schema.ResourceData, group *autoscaling.Group
 	d.Set("health_check_grace_period", group.HealthCheckGracePeriod)
 	d.Set("health_check_type", group.HealthCheckType)
 	d.Set("launch_configuration", group.LaunchConfigurationName)
+	// d.Set("launch_template", group.LaunchTemplate.LaunchTemplateName)
+	d.Set("launch_template", flattenLaunchTemplateSpecification(group.LaunchTemplate))
 	if err := d.Set("load_balancers", aws.StringValueSlice(group.LoadBalancerNames)); err != nil {
 		return err
 	}
@@ -169,6 +197,15 @@ func groupDescriptionAttributes(d *schema.ResourceData, group *autoscaling.Group
 	d.Set("placement_group", group.PlacementGroup)
 	d.Set("service_linked_role_arn", group.ServiceLinkedRoleARN)
 	d.Set("status", group.Status)
+	d.Set("tag", autoscalingTagDescriptionsToSlice(group.Tags))
+	var tagsList []*autoscaling.TagDescription
+	tags := map[string]struct{}{}
+	for _, t := range group.Tags {
+		if _, ok := tags[*t.Key]; ok {
+			tagsList = append(tagsList, t)
+		}
+	}
+	d.Set("tags", autoscalingTagDescriptionsToSlice(tagsList))
 	if err := d.Set("target_group_arns", aws.StringValueSlice(group.TargetGroupARNs)); err != nil {
 		return err
 	}

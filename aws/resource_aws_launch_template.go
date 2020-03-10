@@ -375,10 +375,8 @@ func resourceAwsLaunchTemplate() *schema.Resource {
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"associate_public_ip_address": {
-							Type:             schema.TypeString,
-							Optional:         true,
-							DiffSuppressFunc: suppressEquivalentTypeStringBoolean,
-							ValidateFunc:     validateTypeStringNullableBoolean,
+							Type:     schema.TypeBool,
+							Optional: true,
 						},
 						"delete_on_termination": {
 							Type:     schema.TypeBool,
@@ -956,17 +954,15 @@ func getNetworkInterfaces(n []*ec2.LaunchTemplateInstanceNetworkInterfaceSpecifi
 		var ipv4Addresses []string
 
 		networkInterface := map[string]interface{}{
-			"delete_on_termination": aws.BoolValue(v.DeleteOnTermination),
-			"description":           aws.StringValue(v.Description),
-			"device_index":          aws.Int64Value(v.DeviceIndex),
-			"ipv4_address_count":    aws.Int64Value(v.SecondaryPrivateIpAddressCount),
-			"ipv6_address_count":    aws.Int64Value(v.Ipv6AddressCount),
-			"network_interface_id":  aws.StringValue(v.NetworkInterfaceId),
-			"private_ip_address":    aws.StringValue(v.PrivateIpAddress),
-			"subnet_id":             aws.StringValue(v.SubnetId),
-		}
-		if v.AssociatePublicIpAddress != nil {
-			networkInterface["associate_public_ip_address"] = strconv.FormatBool(aws.BoolValue(v.AssociatePublicIpAddress))
+			"associate_public_ip_address": aws.BoolValue(v.AssociatePublicIpAddress),
+			"delete_on_termination":       aws.BoolValue(v.DeleteOnTermination),
+			"description":                 aws.StringValue(v.Description),
+			"device_index":                aws.Int64Value(v.DeviceIndex),
+			"ipv4_address_count":          aws.Int64Value(v.SecondaryPrivateIpAddressCount),
+			"ipv6_address_count":          aws.Int64Value(v.Ipv6AddressCount),
+			"network_interface_id":        aws.StringValue(v.NetworkInterfaceId),
+			"private_ip_address":          aws.StringValue(v.PrivateIpAddress),
+			"subnet_id":                   aws.StringValue(v.SubnetId),
 		}
 
 		if len(v.Ipv6Addresses) > 0 {
@@ -1310,6 +1306,10 @@ func readNetworkInterfacesFromConfig(ni map[string]interface{}) (*ec2.LaunchTemp
 	var privateIpAddress string
 	networkInterface := &ec2.LaunchTemplateInstanceNetworkInterfaceSpecificationRequest{}
 
+	if v, ok := ni["associate_public_ip_address"]; ok {
+		networkInterface.AssociatePublicIpAddress = aws.Bool(v.(bool))
+	}
+
 	if v, ok := ni["delete_on_termination"]; ok {
 		networkInterface.DeleteOnTermination = aws.Bool(v.(bool))
 	}
@@ -1324,14 +1324,6 @@ func readNetworkInterfacesFromConfig(ni map[string]interface{}) (*ec2.LaunchTemp
 
 	if v, ok := ni["network_interface_id"].(string); ok && v != "" {
 		networkInterface.NetworkInterfaceId = aws.String(v)
-	}
-
-	if v, ok := ni["associate_public_ip_address"]; ok && v.(string) != "" {
-		vBool, err := strconv.ParseBool(v.(string))
-		if err != nil {
-			return nil, fmt.Errorf("error converting associate_public_ip_address %q from string to boolean: %s", v.(string), err)
-		}
-		networkInterface.AssociatePublicIpAddress = aws.Bool(vBool)
 	}
 
 	if v, ok := ni["private_ip_address"].(string); ok && v != "" {
