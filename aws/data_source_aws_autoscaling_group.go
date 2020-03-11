@@ -47,6 +47,10 @@ func dataSourceAwsAutoscalingGroup() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"instances": {
+				Type:     schema.TypeList,
+				Computed: true,
+			},
 			"launch_configuration": {
 				Type:     schema.TypeString,
 				Computed: true,
